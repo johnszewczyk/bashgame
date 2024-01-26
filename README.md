@@ -1,4 +1,9 @@
 # bashgame
+<style>
+  h2 {
+    color: deepskyblue
+     }
+</style>
 A top-down, randomly-generated tile game written in BASH 5+.
 
 <h2>Features</h2>
