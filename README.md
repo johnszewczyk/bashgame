@@ -12,7 +12,7 @@ A top-down, randomly-generated tile game written in BASH 5+.
 
 <br>
 
-<h3>Functionality Overview</h3>
+<h3>Overview</h3>
 <p>A player-controlled cursor is pursued by an AI-controlled enemy across a tile-based gameboard. Players make their way toward the exit tile while taking cover from the enemy on "safe" tiles.</p>
 <br>
 
@@ -25,7 +25,7 @@ A top-down, randomly-generated tile game written in BASH 5+.
   <li>Safe tile; not passable by enemy</li>
   <li>Exit/ win tile</li>
 </ul>
-
+<br>
 <p>Once the map is generated, a second array is created to use as a framebuffer (the 'pixel' data to draw). Referencing the inital array, which serves as a database, is too slow to utilize as a framebuffer. The second array, which is updated only incrementally, is drawn repeatedly. (More to come.)</p>
 
 <br>
