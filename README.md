@@ -14,12 +14,14 @@ tile-based gameboard. Players make their way toward the exit tile while taking c
 ### Tile Types
 
 ```bash
-declare TILE_TREE="🌳" # blocked tile
-declare TILE_WOOD="🌲" # empty tile
-declare TILE_CABIN="🏠" # safe tile
+declare TILE_FIELD="🌾"  # empty tile
+declare TILE_TREES="🌳"  # blocked tile
+declare TILE_WOODS="🌲"  # empty tile
+declare TILE_CABIN="🏠"  # safe tile
+declare TILE_WATER="🌊"  # trap tile
 declare TILE_WINNER="🚔" # exit tile
 declare TILE_PLAYER="🏃" # player
-declare TILE_ENEMY="🔪" # enemy
+declare TILE_ENEMY="🔪"  # enemy
 ```
 
 <br>
