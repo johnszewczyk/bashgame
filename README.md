@@ -3,7 +3,7 @@
 <p>...is a text/ console game written in Bash 5+. A player-controlled cursor is pursued by an AI enemy across a tile-based gameboard. Players make their way toward the exit tile while taking cover from the enemy on "safe" tiles.</p>
 <br>
 
-<h2>Features</h2>
+## Features
 <ul>
   <li>Emoji graphics</li>
   <li>Collision detection</li>
@@ -12,13 +12,11 @@
 
 <br>
 
-<h2>Map & Display</h2>
+## Map & Display
 
 <p>A square map of customisable size is stored as an array of arrays. Each array[init] is assigned a tile type by random number generation. A third reference array allows lookup of an index by keys. Thus, each tile is an array with keys [init] for initial tile value and [occp] to designate an occupation by a player, enemy, or item.</p>
 
-<h3>Tile Types</h3>
-
-<br>
+#### Tile Types
 
 ```bash
 declare TILE_TREE="🌳"    # blocked tile
@@ -30,10 +28,10 @@ declare TILE_ENEMY="🔪"   # enemy
 ```
 
 <br>
-<p>After tile generation, functions to <i>find all tiles of a type</i> and <i>replace adjacent tiles</i> are used to expand tile areas beyond 1x1.</p>
+<p>After tile generation, functions to `find all tiles of a type` and `replace adjacent tiles` are used to expand tile areas beyond 1x1.</p>
 <br>
 
-<h2>Controls & Movement</h2>
+## Controls & Movement
 <br>
 
 ```bash
@@ -59,7 +57,7 @@ The enemy cursor is allowed to move faster and diagonally, to move each turn <b>
 </p>
 <br>
 
-<h3>Database & Framebuffer</h3>
+Database & Framebuffer
 
 ```bash
     # update player location in database
@@ -77,7 +75,7 @@ The enemy cursor is allowed to move faster and diagonally, to move each turn <b>
 
 <br>
 
-<h2>Future</h2>
+## Future
 
 <ul>
 
