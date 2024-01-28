@@ -3,7 +3,7 @@
 ...is a text/ console game written in `Bash 5+`. A player-controlled cursor is pursued by an AI enemy across a
 tile-based gameboard. Players make their way toward the exit tile while taking cover from the enemy on "safe" tiles.
 
-#### Features
+### Features
 
 <ul>
   <li>Emoji graphics</li>
@@ -11,7 +11,7 @@ tile-based gameboard. Players make their way toward the exit tile while taking c
   <li>Scaleable game board size</li>
 </ul>
 
-#### Tile Types
+### Tile Types
 
 ```bash
 declare TILE_TREE="🌳" # blocked tile
