@@ -1,5 +1,14 @@
 # Bash Tile Game
 
+🌲🌲🌲🏠🏠🏠🌲🌲🌲🌲🌲<br>
+🌲🌲🌲🌲🌲🌲🌲🌲🌲🌲🌲<br>
+🌲🌳🌲🌲🌲🏃🏠🏠🌲🌳🌲<br>
+🌲🌲🌲🌲🌲🏠🏠🏠🌲🌲🌳<br>
+🌲🌲🌲🌲🔪🏠🏠🏠🌲🌲🌲<br>
+🌳🌲🌲🌲🌲🏠🏠🏠🏠🏠🌲<br>
+🌲🌲🌳🌳🌲🏠🏠🏠🏠🏠🏠<br>
+🌾🌳🌲🌲🌲🌲🌳🏠🏠🏠🏠<br>
+
 ...is a text/ console game written in `Bash 5+`. A player-controlled cursor is pursued by an AI enemy across a
 tile-based gameboard. Players make their way toward the exit tile while taking cover from the enemy on "safe" tiles.
 
