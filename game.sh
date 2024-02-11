@@ -637,9 +637,9 @@ function moveNPC {
   fi
 
   # teleport
-  # npc_new_pos=$(printf "p%02d%02d" "$npc_x" "$npc_y")         # store new position
-  # [[ "$npc_old_pos" == "$npc_new_pos" ]] && ((npc_no_move++)) # compare old position, count no movement
-  # [[ "$npc_no_move" == 3 ]] && npc_no_move=0 && teleNPC       # after so many turns, run function and reset counter
+  npc_new_pos=$(printf "p%02d%02d" "$npc_x" "$npc_y")         # store new position
+  [[ "$npc_old_pos" == "$npc_new_pos" ]] && ((npc_no_move++)) # compare old position, count no movement
+  [[ "$npc_no_move" == 3 ]] && npc_no_move=0 && teleNPC       # after so many turns, run function and reset counter
 
 }
 function teleNPC {
@@ -719,7 +719,7 @@ function moveApprove {
     # ...from doors to cabin
     [[ "$3" == "$TILE_ENTRY" ]] && [[ $1 == "$TILE_CABIN" ]] && return
 
-    # ...from cabinsto cabin
+    # ...from cabin to cabin
     [[ "$3" == "$TILE_CABIN" ]] && [[ $1 == "$TILE_CABIN" ]] && return
 
     # ... from doors to field
