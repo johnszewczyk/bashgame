@@ -33,7 +33,7 @@ declare TILE_PLAYER="🏃" # player
 declare TILE_ENEMY="🔪"  # enemy
 ```
 
-<br>
+<br><br>
 
 ## Map & Display
 
@@ -57,7 +57,7 @@ eval "$(printf "declare -A -g p%02d%02d[init]=\"%s\"" "$x" "$y" "$myrandom")"
 After tile generation, three functions to `find all tiles of a type` and `find adjacent tiles` and `replace tiles` are used to expand tile
 areas beyond 1x1.
 
-<br>
+<br><br>
 
 ## Controls & Movement
 
@@ -77,7 +77,7 @@ read -rsn1 -t${GAMESPEED} keystroke
 
 Player movement is modeled using keystrokes to increment a cursor across an array. The enemy cursor is able to move diagonally, to move each turn or each time the player moves, and to teleport in the event of becoming stuck on something. Further, the enemy cursor is unable to enter some tiles.
 
-<br>
+<br><br>
 
 ## Database & Framebuffer
 
@@ -101,7 +101,7 @@ When the map is generated, a second array is created to use as a framebuffer (th
 inital array, which serves as a database, is too slow to utilize as a framebuffer. The second array, which is updated
 only incrementally, is drawn repeatedly. Finally, a third array describing the viewable area of the map (relative to the player) is used to choose which tiles are drawn.
 
-<br>
+<br><br>
 
 ## Future
 
