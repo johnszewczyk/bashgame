@@ -75,7 +75,7 @@ read -rsn1 -t${GAMESPEED} keystroke
 
 <br>
 
-Player movement is modeled using keystrokes to increment a cursor across an array. The enemy cursor is able to move diagonally, to move each turn **_and_** each time the player moves, and to teleport in the event of becoming stuck on something. Further, the enemy cursor is unable to enter some tiles by way of a movement approval method in `moveNPC`.
+Player movement is modeled using keystrokes to increment a cursor across an array. The enemy cursor is able to move diagonally, to move each turn or each time the player moves, and to teleport in the event of becoming stuck on something. Further, the enemy cursor is unable to enter some tiles.
 
 <br>
 
@@ -99,7 +99,7 @@ framebuffer[player_index]="$TILE_PLAYER" # update framebuffer
 
 When the map is generated, a second array is created to use as a framebuffer (the 'pixel' data to draw). Referencing the
 inital array, which serves as a database, is too slow to utilize as a framebuffer. The second array, which is updated
-only incrementally, is drawn repeatedly. (More to come.)
+only incrementally, is drawn repeatedly. Finally, a third array describing the viewable area of the map (relative to the player) is used to choose which tiles are drawn.
 
 <br>
 
@@ -107,5 +107,5 @@ only incrementally, is drawn repeatedly. (More to come.)
 
 - [ ] Game menu to launch or configure options
 - [ ] Additional tile types; items, collectables, traps, etc.
-- [ ] Scrolling map and scaleable viewport
+- [ ] Multiple NPCs
 
