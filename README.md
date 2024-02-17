@@ -109,3 +109,11 @@ only incrementally, is drawn repeatedly. Finally, a third array describing the v
 - [ ] Additional tile types; items, collectables, traps, etc.
 - [ ] Multiple NPCs
 
+## Historical Comments
+A section to reflect on milestones
+
+### Tile Database
+
+Initially, a tile was an associative array, allowing many properties through keys and values. An array held the names of each tile for reference. The limitations of nested arrays in bash created a convoluted system to set or access tiles. Ultimately, the added complexity, though functional, resulted in the program becoming tedious to understand.
+
+Further, a "framebuffer" was needed to quickly draw the tiles, as even looping through the reference array was noticeably slower. Although the tile database held variety of attributes, simply creating a new array to track tiles with a given attritube is effective. 
