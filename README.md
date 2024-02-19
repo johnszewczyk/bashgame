@@ -39,7 +39,7 @@ declare TILE_ENEMY="🔪"  # enemy
 
 <br>
 
-A square map of customisable size is generated randomly. Each tile is an array with keys [init] for initial tile value and [occp] to designate an occupation by a player, enemy, or item. `eval` is used to make associative arrays in-loop, with each name reflecting the tile's location on a coordinate plane.
+An indexed array of tiles is randomly generated. Players traverse the array logically, +1/ -1 to move horizontally and +(dimension)/ -(dimension) to move vertically across indices. For some calculatios, index/ position is converted to x,y via grid properties.
 
 <br>
 
@@ -64,13 +64,8 @@ areas beyond 1x1.
 <br>
 
 ```bash
-# wait for any input key
+# take input
 read -rsn1 -t${GAMESPEED} keystroke
-
-[[ $keystroke == "w" ]] && ((y = y + 1)) # directional movement north
-[[ $keystroke == "a" ]] && ((x = x - 1)) # directional movement west
-[[ $keystroke == "s" ]] && ((y = y - 1)) # directional movement south
-[[ $keystroke == "d" ]] && ((x = x + 1)) # directional movement east
 ```
 
 <br>
@@ -114,6 +109,6 @@ A section to reflect on milestones
 
 ### Tile Database
 
-Initially, a tile was an associative array, allowing many properties through keys and values. An array held the names of each tile for reference. The limitations of nested arrays in bash created a convoluted system to set or access tiles. Ultimately, the added complexity, though functional, resulted in the program becoming tedious to understand.
+Initially, a tile was an associative array, allowing many properties through keys and values. An array held the names of each tile for reference. The limitations of nested arrays in bash created a convoluted system to set or access tiles. Ultimately, the added complexity, though functional, resulted in the program becoming tedious to understand. Further, moving away from a padded coordinate system (via printf) to a positional/ indexed organiztaion not only simplified code, but immediately allowed game size to increase from ~90x90 to ~600x600 or more. Finally, moving to a single indexed array for all tiles massively reduced load times. 
 
-Further, a "framebuffer" was needed to quickly draw the tiles, as even looping through the reference array was noticeably slower. Although the tile database held variety of attributes, simply creating a new array to track tiles with a given attritube is effective. 
+
