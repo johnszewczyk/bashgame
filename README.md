@@ -96,19 +96,4 @@ When the map is generated, a second array is created to use as a framebuffer (th
 inital array, which serves as a database, is too slow to utilize as a framebuffer. The second array, which is updated
 only incrementally, is drawn repeatedly. Finally, a third array describing the viewable area of the map (relative to the player) is used to choose which tiles are drawn.
 
-<br><br>
-
-## Future
-
-- [ ] Game menu to launch or configure options
-- [ ] Additional tile types; items, collectables, traps, etc.
-- [ ] Multiple NPCs
-
-## Historical Comments
-A section to reflect on milestones
-
-### Tile Database
-
-Initially, a tile was an associative array, allowing many properties through keys and values. An array held the names of each tile for reference. The limitations of nested arrays in bash created a convoluted system to set or access tiles. Ultimately, the added complexity, though functional, resulted in the program becoming tedious to understand. Further, moving away from a padded coordinate system (via printf) to a positional/ indexed organiztaion not only simplified code, but immediately allowed game size to increase from ~90x90 to ~600x600 or more. Finally, moving to a single indexed array for all tiles massively reduced load times. 
-
 
