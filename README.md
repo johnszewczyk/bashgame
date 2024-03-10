@@ -9,8 +9,7 @@
 🌲🌲🌳🌳🌲🏠🏠🏠🏠🏠🏠<br>
 🌾🌳🌲🌲🌲🌲🌳🏠🏠🏠🏠<br>
 
-...is a text/ console game written in `Bash 5+`. A player-controlled cursor is pursued by an AI enemy across a
-tile-based gameboard. Players make their way toward the exit tile while taking cover from the enemy on "safe" tiles.
+...is a text/ console game written in `Bash 5+`. A player-controlled cursor is pursued by AI enemies across a tile-based gameboard. Players make their way toward the exit tile while taking cover from the enemy on "safe" tiles.
 
 ### Features
 
@@ -20,26 +19,13 @@ tile-based gameboard. Players make their way toward the exit tile while taking c
   <li>Scaleable game board size</li>
 </ul>
 
-### Tile Types
-
-```bash
-declare TILE_FIELD="🌾"  # empty tile
-declare TILE_TREES="🌳"  # blocked tile
-declare TILE_WOODS="🌲"  # empty tile
-declare TILE_CABIN="🏠"  # safe tile
-declare TILE_WATER="🌊"  # trap tile
-declare TILE_WINNER="🚔" # exit tile
-declare TILE_PLAYER="🏃" # player
-declare TILE_ENEMY="🔪"  # enemy
-```
-
-<br><br>
+<br>
 
 ## Map & Display
 
 <br>
 
-An indexed array of tiles is randomly generated. Players traverse the array logically, +1/ -1 to move horizontally and +(dimension)/ -(dimension) to move vertically across indices. For some calculatios, index/ position is converted to x,y via grid properties.
+A square game board of "tiles" (indexes of an array) is randomly generated. Additional functions modify the tile map after generation.
 
 <br>
 
@@ -57,22 +43,35 @@ eval "$(printf "declare -A -g p%02d%02d[init]=\"%s\"" "$x" "$y" "$myrandom")"
 After tile generation, three functions to `find all tiles of a type` and `find adjacent tiles` and `replace tiles` are used to expand tile
 areas beyond 1x1.
 
-<br><br>
+<br>
 
 ## Controls & Movement
 
 <br>
 
 ```bash
-# take input
+# wait for any input key
 read -rsn1 -t${GAMESPEED} keystroke
+
+[[ $keystroke == "w" ]] && ((y = y + 1)) # directional movement north
+[[ $keystroke == "a" ]] && ((x = x - 1)) # directional movement west
+[[ $keystroke == "s" ]] && ((y = y - 1)) # directional movement south
+[[ $keystroke == "d" ]] && ((x = x + 1)) # directional movement east
 ```
 
 <br>
 
-Player movement is modeled using keystrokes to increment a cursor across an array. The enemy cursor is able to move diagonally, to move each turn or each time the player moves, and to teleport in the event of becoming stuck on something. Further, the enemy cursor is unable to enter some tiles.
+Player movement is modeled using keystrokes to increment a cursor across an array. The enemy cursor is able to move diagonally, to move each turn **_and_** each time the player moves, and to teleport in the event of becoming stuck on something. Further, the enemy cursor is unable to enter some tiles.
 
-<br><br>
+<br>
+
+## Enemies & Obstacles
+
+<br>
+
+Enemies are spawned and managed in-loop, allowing for additions instantly. (Increasing the amount of AI-controlled units quickly reveals the limitations of BASH.)
+
+<br>
 
 ## Database & Framebuffer
 
@@ -92,8 +91,24 @@ framebuffer[player_index]="$TILE_PLAYER" # update framebuffer
 
 <br>
 
-When the map is generated, a second array is created to use as a framebuffer (the 'pixel' data to draw). Referencing the
-inital array, which serves as a database, is too slow to utilize as a framebuffer. The second array, which is updated
-only incrementally, is drawn repeatedly. Finally, a third array describing the viewable area of the map (relative to the player) is used to choose which tiles are drawn.
+When the map is generated, a second array is created to use as a framebuffer (the 'pixel' data to draw). Referencing the inital array, which serves as a database, is too slow to utilize as a framebuffer. The second array, which is updated only incrementally, is drawn repeatedly. (More to come.)
+
+<br>
+
+## Future
+
+- [ ] Game menu to launch or configure options
+- [ ] Additional tile types; items, collectables, traps, etc.
+- [ ] Scrolling map and scaleable viewport
+
+# Thoughts
 
 
+### Tile Data
+Previously, the game's map, an indexed array holding references to associative arrays for each tile, allowed for extensive tile attributes via the `-A` array's keys and values. This method was extremely slow, setting multiple variables/ values for each tile. Instead, indices of tiles with special attributes are held in an array and referenced when needed. Even same-tiles with different functionalities can be easily represented this way. Map creation logic is reduced significantly and much faster.
+
+### Enemies
+Previously, the game's enemies, single variables storing an occupied tile, required explicit creation and a convoluted system of `eval` to access. Now, all enemies are managed in-loop, allowing them to be spawned repeatedly. Game logic is significantly less abstract and more capable.
+
+### Display
+Previously, the game's map was drawn every "frame". The map size was thus limited by the terminal window size. Now, a "viewport" system is used to draw a small area of the map around the player allowing for map sizes well beyond 
