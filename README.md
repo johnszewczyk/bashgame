@@ -11,13 +11,11 @@
 
 ...is a text/ console game written in `Bash 5+`. A player-controlled cursor is pursued by AI enemies across a tile-based gameboard. Players make their way toward the exit tile while taking cover from the enemy on "safe" tiles.
 
-### Features
+**Features**
 
-<ul>
-  <li>Emoji graphics</li>
-  <li>Collision detection</li>
-  <li>Scaleable game board size</li>
-</ul>
+* Emoji Graphics
+* Collision Detection
+* Randomly Generated Maps
 
 <br>
 
@@ -29,7 +27,7 @@ A square game board of "tiles" (indexes of an array) is randomly generated. Addi
 
 <br>
 
-#### Dyamically-Named Variable Assignment in-Loop
+**Dyamically-Named Variable Assignment in-Loop**
 
 ```bash
 # use eval to set dynamically-named variable
