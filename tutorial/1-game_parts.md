@@ -29,12 +29,14 @@ Initializes global variables:
 
 ## updateScreen
 
-Replaces the tile at the previous position (old_index) with the empty tile (TILE1).
-Replaces the tile at the current position (p_index) with the player cursor tile (TILE2).
+Function to update the framebuffer before next draw.
+
+- Replaces the tile at the previous position (old_index) with the empty tile (TILE1).
+- Replaces the tile at the current position (p_index) with the player cursor tile (TILE2).
 
 ## makeGame
 
-Fills the game_map array with empty tiles (TILE1) to create the initial map layout.
+- Fills the game_map array with empty tiles (TILE1) to create the initial map layout.
 
 ## startGame
 
