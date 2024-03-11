@@ -41,6 +41,8 @@ Enemies are spawned and managed in-loop, allowing for additions instantly. (Incr
 - [ ] Additional tile types; items, collectables, traps, etc.
 - [ ] Save / Load tile maps; dedicated levels.
 
+<br>
+
 ## Thoughts
 A section to reflect on milestones
 
