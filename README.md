@@ -41,16 +41,3 @@ Enemies are spawned and managed in-loop, allowing for additions instantly. (Incr
 - [ ] Additional tile types; items, collectables, traps, etc.
 - [ ] Save / Load tile maps; dedicated levels.
 
-<br>
-
-## Thoughts
-A section to reflect on milestones
-
-### Tile Data
-Previously, the game's map, an indexed array holding references to associative arrays for each tile, allowed for extensive tile attributes via the `-A` array's keys and values. This method was extremely slow, setting multiple variables/ values for each tile. Instead, indices of tiles with special attributes are held in an array and referenced when needed. Even same-tiles with different functionalities can be easily represented this way. Map creation logic is reduced massively.
-
-### Enemies
-Previously, the game's enemies, single variables storing an occupied tile, required explicit creation and a convoluted system of `eval` to access. Now, all enemies are managed in-loop, allowing them to be spawned repeatedly. Game logic is significantly less abstract and more capable.
-
-### Display
-Previously, the game's map was drawn every "frame". The map size was thus limited by the terminal window size. Now, a "viewport" system is used to draw a small area of the map around the player allowing for map sizes well beyond 
