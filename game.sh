@@ -1,891 +1,405 @@
 #!/bin/bash
 
-# BASH5 tile game.
+# Tile-based game uses array to store a grid formation.
+# Array is used for database of tiles; cells hold listvar name for tile data
+# Another array is used as a framebuffer, as referencing every tile is too slow
 
-[[ -f log.txt ]] && rm log.txt
+# FONT COLORS
+RED='\033[0;31m' # red
+OFF='\033[0m'    # off
+
+declare dbug=on # dbug switch
+tput civis      # turn off cursor display
+
+# GLOBAL
+declare -g -i npc_x=10       # badguy starting coordinates X
+declare -g -i npc_y=10       # badguy starting coordinates Y
+declare -g -a framebuffer=() # where active display "pixels" are stored
+
+# GRAPHIC OPTIONS LOL
+declare -i RESOLUTION=10 # game screen size
+declare -i GAMESPEED=2   # think seconds-per-frame, rather
+declare TILE_TREE="🌳"    # tree
+declare TILE_WOOD="🌲"    # empty tile
+declare TILE_CABIN="🏠"   # cabin
+declare TILE_WINNER="🚔"  # exit
+declare TILE_PLAYER="🏃"  # player
+declare TILE_ENEMY="🔪"   # enemy
+
+function makeDictionary() {
+  [[ $dbug == on ]] && echo "DEBUG: making dict"
+
+  # create pixel–coordinate dictionary to access arrays by values of keys
+  local -i i                      # for loop counter
+  local -i x=0                    # for increment
+  local -i y=$RESOLUTION          # for new row
+  declare -A -g pixelDictonary=() # dict array for coord-pixel relationship
+
+  for ((i = 0; i < (RESOLUTION * RESOLUTION); i++)); do
+    ((x++))                                             # increment column
+    pixelDictonary[$(printf "%02d%02d" "$x" "$y")]="$i" # store data
+    [[ $x == "$RESOLUTION" ]] && x=0 && ((y += -1))     # start a new row
+  done
+}
 
 ################################################################################
-# DEFINITION
+# MAP GENERATION
 ################################################################################
 
-function initConstants {
-  # Function to set all global constant vars
+function makeCamp() {
+  # Function to create array of tiles, randomly, to a square
+  # RESOLUTION of ARG1; e.g., 10 = 10x10 = 100 items in output array.
 
-  # FONT COLORS
-  declare -g -r RED='\033[0;31m' # red
-  declare -g -r OFF='\033[0m'    # off
+  # notificatoin
+  [[ $dbug == on ]] && echo "DEBUG: making camp"
 
-  # GLOBAL CONSTANTS - SYSTEM
-  declare -g DBUG=on
-  declare -g -i DIMS=100                          # map size
-  declare -g -i GAMESPEED=1                       # seconds per frame
-  declare -g -i VIEWSIZE=9                        # view range; MUST BE ODD
-  declare -g -i VIEWRAD="$(((VIEWSIZE - 1) / 2))" # viewport size
+  declare myrandom  # var to hold generated tile content
+  declare -i i=0    # var for loop
+  declare -i x=0    # var for dynamic name
+  declare -i y=1    # var for dynamic name
+  declare -i r="$1" # ARG1 RESOLUTION or dimension
 
-  # GLOBAL CONSTANTS - OFFSETS
-  declare -g -i -r PATHN=$((-DIMS))
-  declare -g -i -r PATHS=$((DIMS))
-  declare -g -i -r PATHE=1
-  declare -g -i -r PATHW=-1
-  declare -g -i -r PATHNE=$((-DIMS + 1))
-  declare -g -i -r PATHNW=$((-DIMS - 1))
-  declare -g -i -r PATHSE=$((DIMS + 1))
-  declare -g -i -r PATHSW=$((DIMS - 1))
+  for ((i = 0; i < (r * r); i++)); do # for each in RESOLUTION^2
+    ((x++))
 
-  # GLOBAL CONSTANTS - TILES
-  declare -g -r TILE_BORDER="🌳" # border
-  declare -g -r TILE_CABIN="🏠"  # safe
-  declare -g -r TILE_DOOR="🚪"   # door
-  declare -g -r TILE_FIELD="🌾"  # empty
-  declare -g -r TILE_TREES="🌳"  # blocked
-  declare -g -r TILE_WOODS="🌲"  # empty
-  declare -g -r TILE_LAKE="🌊"   # trap
-  declare -g -r TILE_EXIT="🚔"   # exit
-  declare -g -r TILE_HUMAN="🏃"  # human
-  declare -g -r TILE_KNIFE="🔪"  # enemy
-  declare -g -r TILE_WOLF="🐺"   # enemy
-}
-function initGameVars {
-  # Function to initialize variables used in-game
-
-  # Global variables
-  declare -g gametime=0                                 # gametime / clock
-  declare -g keypress=0                                 # last keypress
-  declare -g message1='Use A S D W to move, Q to quit.' # init console text
-  declare -a -g framebuffer=()                          # where active display "pixels" are stored
-  declare -a -g tile_map=()                             # initial map for ref
-
-  # vars to manage moving items
-  declare -g -a wolflist=()
-  declare -g -a knife_list=()
-
-  # vars to manage tiles
-  declare -g -a tilelist_cabin=()
-  declare -g -a tilelist_entry=()
-  declare -g -a tilelist_field=()
-  declare -g -a tilelist_water=()
-  declare -g -a tilelist_woods=()
-  declare -g tile_loss # report loss reason
-
-  # define some specifc squares
-  declare -g GRID_SW=$((DIMS * DIMS - VIEWRAD * DIMS + VIEWRAD - DIMS))
-  declare -g GRID_NE=$((VIEWRAD * DIMS - VIEWRAD + DIMS))
-  declare -g GRID_NW=$((DIMS * VIEWRAD + VIEWRAD))
-}
-
-# MAKE MAP
-function loadCamp {
-  # Function to read array from text file
-  [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') LOAD CAMP" >>log.txt
-
-  declare filename="stage01.txt"
-  declare -g char_array=()
-
-  # Loop through each line in the file
-  while IFS= read -r line; do
-    # Loop through each character in the line
-    for ((i = 0; i < ${#line}; i++)); do
-      # Extract character and append it to the array
-      char="${line:$i:1}"
-      char_array+=("$char")
-      DIMS=${#line}
-    done
-  done <"$filename"
-
-  tile_map=("${char_array[@]}")
-
-  clear
-  echo "map size = $DIMS"
-  sleep 2
-
-  startLoad
-
-}
-function makeCamp {
-  declare -a -g tile_map=()
-  # Function to make array of tiles, randomly. ARG must be square number.
-
-  # debug notify
-  [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') MAKE CAMP" >>log.txt
-
-  local myrandom # var to hold generated tile content
-  local -i i x y
-
-  # for each in DIMS^2
-  for ((i = 0; i < ($1 * $1); i++)); do
-    # [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')   loading: $i of $(($1 * $1))"
-
-    # BORDER HANDLER
-
-    # top-bottom-border tiles = view radius * DIMS
-    if [[ $i -le $((VIEWRAD * $1)) ]] || [[ $i -ge $(($1 * $1 - VIEWRAD * $1)) ]]; then
-      tile_map[i]=$TILE_BORDER
-      continue
-    fi
-
-    # side-border tiles
-    x=$((i % $1)) # calc x
-    y=$((i / $1)) # calc y
-
-    if ((x < VIEWRAD || x >= ($1 - VIEWRAD))); then
-      tile_map[i]="$TILE_BORDER"
-      continue
-    elif ((y < VIEWRAD || y >= ($1 - VIEWRAD))); then
-      tile_map[i]="$TILE_BORDER"
-      continue
-    fi
-
-    # NORMAL TILES
-
-    # make a random number
+    # generate a random number
     myrandom=$((1 + RANDOM % 999))
 
-    # select "tile type" from random
+    # determine "tile type" from random
     if [[ "$myrandom" -le 1 ]]; then
-      myrandom="$TILE_EXIT"
-
-    elif [[ "$myrandom" -ge 2 ]] && [[ "$myrandom" -le 3 ]]; then
-      myrandom="$TILE_LAKE"
-
-    elif [[ "$myrandom" -ge 4 ]] && [[ "$myrandom" -le 875 ]]; then
-      myrandom="$TILE_WOODS"
-
-    elif [[ "$myrandom" -ge 876 ]] && [[ "$myrandom" -le 900 ]]; then
-      myrandom="$TILE_FIELD"
-
+      myrandom="$TILE_WINNER"
+    elif [[ "$myrandom" -ge 2 ]] && [[ "$myrandom" -le 900 ]]; then
+      myrandom="$TILE_WOOD"
     elif [[ "$myrandom" -ge 901 ]] && [[ "$myrandom" -le 974 ]]; then
-      myrandom="$TILE_TREES"
-
+      myrandom="$TILE_TREE"
     elif [[ "$myrandom" -ge 975 ]]; then
       myrandom="$TILE_CABIN"
     fi
 
-    # make lists of tile type locations for later
-    [[ $myrandom == "$TILE_CABIN" ]] && tilelist_cabin+=("$i")
-    [[ $myrandom == "$TILE_DOOR" ]] && tilelist_entry+=("$i")
-    [[ $myrandom == "$TILE_FIELD" ]] && tilelist_field+=("$i")
-    [[ $myrandom == "$TILE_LAKE" ]] && tilelist_water+=("$i")
-    [[ $myrandom == "$TILE_WOODS" ]] && tilelist_woods+=("$i")
+    # use eval to set dynamically-named variable
+    eval "$(printf "declare -A -g p%02d%02d[home]=\"%s\"" "$x" "$y" "$myrandom")" # set var loop
 
-    # save tile
-    tile_map[i]=$myrandom
+    # [[ "$dbug" == "on" ]] && printf "\n GENERATED: (%02d,%02d): %s" "$x" "$y" "$myrandom"
 
+    # start a new row
+    [[ $x == "$r" ]] && x=0 && ((y += 1))
   done
-
 }
-function expand3x3 {
+function makeScreen() {
+  # Function to initialize framebuffer
+  [[ $dbug == on ]] && echo "DEBUG: making screen"
+
+  # creates array to hold pixel data
+  # this method is too slow to use as a screen
+  # so it runs once to generate a screen which is then updated in increments
+
+  declare -a -g dump_list=()       # log file
+  declare -i i q                   # counters
+  declare -i x=0                   # x coordinate
+  declare -i y=$((RESOLUTION + 1)) # y coordinate
+
+  for ((i = 1; i < (RESOLUTION + 1); i++)); do   # FOR
+    ((y--))                                      # row by row
+    for ((q = 1; q < (RESOLUTION + 1); q++)); do # FOR
+      ((x++))                                    # column by column
+      # [[ "$dbug" == "on" ]] && echo "BLD SCR: ($x,$y)"    # dbug readout
+      key_home=$(printf "%s%02d%02d[home]" "p" "$x" "$y") # get key values
+      framebuffer+=("${!key_home}")                       # construct display list
+      dump_list+=("$(printf "p%02d%02d" "$x" "$y")")      # log created vars
+    done
+    x=0
+  done
+}
+function drawScreen() {
+  # Function to draw-print a square array line-by-line, row-by-by
+
+  declare -n arg1=$1  # array to draw
+  declare -i arg2=$2  # needed for line break
+  declare -i ticker=0 # array index
+
+  clear
+
+  for point in "${arg1[@]}"; do
+    ((ticker++))                                   # increment index
+    printf "%s " "$point"                          # draw value
+    [[ "$ticker" == "$arg2" ]] && ticker=0 && echo # new line
+  done
+}
+
+# CABIN EXPANSION
+function findTiles() {
+  # Function to parse array by values and create a new list to reference them.
+
+  declare -i x=0               # counter
+  declare -i y=$((RESOLUTION)) # counter
+  # declare -i r=$((RESOLUTION)) # store max RESOLUTION
+
+  declare pix_add      #
+  declare pix_val="$1" # ARG1: array value to match
+  declare -a -g targ_list=()
+
+  for ((i = 0; i < RESOLUTION; i++)); do
+    for ((q = 0; q < RESOLUTION; q++)); do
+      ((x++))                                                                      # start x coord at 1
+      pix_add=$(printf "%s%02d%02d[home]" "p" "$x" "$y")                           # take a coordinate array
+      if [[ ${!pix_add} == "$pix_val" ]]; then                                     # if value matches search target
+        [[ "$dbug" == "on" ]] && echo "  found: $1: ${pix_add:1:2},${pix_add:3:2}" # readout - targets
+        targ_list+=("${pix_add:1:2}${pix_add:3:2}")                                # then store coordinates
+      fi
+    done
+    x=0     # start new row
+    ((y--)) # start new column
+  done
+}
+function expandTiles() {
   # Function to clone array cells in grid-formation from 1x1 to 3x3
 
-  [[ "$DBUG" == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') GROW TILE ($1, $2, $3)" >>log.txt
-
   declare -n myref="$1" # name ref used to pass array as argument
-  declare arg2="$2"     # tile
 
-  for i in "${myref[@]}"; do
-    replaceTile "$i" $PATHN "$2"
-    replaceTile "$i" $PATHS "$2"
-    replaceTile "$i" $PATHE "$2"
-    replaceTile "$i" $PATHW "$2"
-    replaceTile "$i" $PATHNE "$2"
-    replaceTile "$i" $PATHNW "$2"
-    replaceTile "$i" $PATHSE "$2"
-    replaceTile "$i" $PATHSW "$2"
-  done
-}
-function makeDoors {
-  # Function change NSEW tile to door - has issues
+  for pair in "${myref[@]}"; do
+    declare x=${pair:0:2}
+    declare y=${pair:2:3}
 
-  [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') GROW DOORS" >>log.txt
+    # debug notification
+    # [[ "$dbug" == on ]] && echo "EXPAND: ($x,$y)"
 
-  declare -n myref="$1" # name ref used to pass array as argument
-  local arg2="$2"       # tile type to write
-
-  for idx in "${myref[@]}"; do
-    # [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')   @ $idx" >>log.txt
-
-    # ALTERNATE - exaustive
-
-    local -i randnumb=1
-
-    while [[ $randnumb -le 8 ]]; do
-      if [[ $randnumb == 1 ]]; then
-        tileTest "$idx" $PATHN 2 $TILE_WOODS && replaceTile "$idx" $PATHN "$2" && break
-      elif [[ $randnumb == 2 ]]; then
-        tileTest "$idx" $PATHS 2 $TILE_WOODS && replaceTile "$idx" $PATHS "$2" && break
-      elif [[ $randnumb == 3 ]]; then
-        tileTest "$idx" $PATHE 2 $TILE_WOODS && replaceTile "$idx" $PATHE "$2" && break
-      elif [[ $randnumb == 4 ]]; then
-        tileTest "$idx" $PATHW 2 $TILE_WOODS && replaceTile "$idx" $PATHW "$2" && break
-      elif [[ $randnumb == 5 ]]; then
-        tileTest "$idx" $PATHNE 2 $TILE_WOODS && replaceTile "$idx" $PATHNE "$2" && break
-      elif [[ $randnumb == 6 ]]; then
-        tileTest "$idx" $PATHNW 2 $TILE_WOODS && replaceTile "$idx" $PATHNW "$2" && break
-      elif [[ $randnumb == 7 ]]; then
-        tileTest "$idx" $PATHSE 2 $TILE_WOODS && replaceTile "$idx" $PATHSE "$2" && break
-      elif [[ $randnumb == 8 ]]; then
-        tileTest "$idx" $PATHSW 2 $TILE_WOODS && replaceTile "$idx" $PATHSW "$2" && break
-      fi
-      ((randnumb++))
-    done
+    replaceTile "$x" "$y" "$TILE_CABIN" n
+    replaceTile "$x" "$y" "$TILE_CABIN" s
+    replaceTile "$x" "$y" "$TILE_CABIN" e
+    replaceTile "$x" "$y" "$TILE_CABIN" w
+    replaceTile "$x" "$y" "$TILE_CABIN" ne
+    replaceTile "$x" "$y" "$TILE_CABIN" nw
+    replaceTile "$x" "$y" "$TILE_CABIN" se
+    replaceTile "$x" "$y" "$TILE_CABIN" sw
 
   done
 }
-function replaceTile {
-  # Function to update a tile using index, tile, compass direction.
+function replaceTile() {
+  # Function to update a tile on the map based on coordinates, seek character, and compass direction.
 
-  # [[ "$DBUG" == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') REPLACE TILE ($1, $2, $3)" >>log.txt
+  declare t
+  declare myx="$1"       # arg1 x coord
+  declare myy="$2"       # arg2 y coord
+  declare seek_char="$3" # arg3 search target tile
+  declare compass="$4"   # arg4 compass direction
 
-  local -i arg1=$1   # index
-  local -i arg2="$2" # compass direction
-  local arg3=$3      # tile
-  local -i new_index # math
+  # Define named constants for compass directions
 
-  # calc new index & set
-  new_index=$(($1 + $2))
-  tile_map[new_index]=$3
+  [[ $compass == "n" ]] && dx=0 dy=1
+  [[ $compass == "s" ]] && dx=0 dy=-1
+  [[ $compass == "e" ]] && dx=1 dy=0
+  [[ $compass == "w" ]] && dx=-1 dy=0
+  [[ $compass == "ne" ]] && dx=1 dy=1
+  [[ $compass == "nw" ]] && dx=-1 dy=1
+  [[ $compass == "se" ]] && dx=1 dy=-1
+  [[ $compass == "sw" ]] && dx=-1 dy=-1
 
-}
-function tileTest {
-  # Function to test a tile at absolute position + direction + tiles
-  # [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')   TILE TEST: ${tile_map[(($1 + $2 * $3))]} = $4 ???" >>log.txt
+  myx=$(echo "$myx" | sed 's/^0*//') # Remove padding for math
+  myy=$(echo "$myy" | sed 's/^0*//') # Remove padding for math
+  myx=$((myx + dx))                  # Perform math
+  myy=$((myy + dy))                  # Perform math
 
-  local -i arg1="$1" # index
-  local -i arg2="$2" # index direction
-  local -i arg3="$3" # index offset
-  local -i offset=$(($1 + $2 * $3))
-
-  # test if true
-  [[ "${tile_map[offset]}" == "$4" ]] && return 0
-
-  # [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')     test: fail" >>log.txt
-
-  return 1
-
-}
-
-# DISPLAY
-function drawScreen {
-  # Function to draw-print a square array line-by-line, row-by-by
-  # [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')   DRAW SCREEN" >>log.txt
-
-  local -n arg1=$1  # array to draw
-  local -i arg2=$2  # $DIMS
-  local -i lineBr=0 # array index
-
-  clear
-
-  #  draw each line
-  for point in "${arg1[@]}"; do
-    ((lineBr++))
-    echo -n "$point"
-    [[ "$lineBr" -ge $2 ]] && lineBr=0 && echo
-  done
-}
-function drawConsole {
-  # Function to draw text below game area
-
-  if [[ $DBUG == on ]]; then
-    echo
-    echo "🕰️: $gametime"
-    echo "$hmn_last_icon @ $hmn_idx @ ($((hmn_idx % DIMS)),$((hmn_idx / DIMS)))"
-    echo
+  # Do not create outside of bounds
+  if ((myx > RESOLUTION || myx < 1 || myy > RESOLUTION || myy < 1)); then
+    return
   fi
 
-  # console message
-  echo "$message1"
+  myx=$(printf "%02d" "$myx")             # Reapply padding
+  myy=$(printf "%02d" "$myy")             # Reapply padding
+  t=$(printf "p%s%s[home]" "$myx" "$myy") # Construct name
 
-  # idle text
-  [[ "${tile_map[hmn_idx]}" == "$TILE_WOODS" ]] && message1="The woods are scary at night."
-  [[ "${tile_map[hmn_idx]}" == "$TILE_CABIN" ]] && message1="The cabin feels safer."
-  [[ "${tile_map[hmn_idx]}" == "$TILE_DOOR" ]] && message1="Get inside!"
-  [[ "${tile_map[hmn_idx]}" == "$TILE_FIELD" ]] && message1="The clearing feels unsafe."
+  # Debug notification
+  [[ "$dbug" == on ]] && echo "TARGET: $t = ${!t}"
 
-}
-function drawWindow {
-  # Function to draw a small window of map.
-  [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') DRAW WINDOW" >>"log.txt"
-
-  # re-calc - allows viewport +/- in-game
-  VIEWRAD="$(((VIEWSIZE - 1) / 2))"
-  [[ VIEWSIZE -gt DIMS ]] && ((VIEWSIZE -= 2))
-
-  clear
-
-  # get adjacent tiles; use grid principle; x = ones y = tens place
-
-  # EXAMPLE: declare -a offsets=(-5 -4 -3 -2 -1 0 1 2 3 4 5)
-
-  declare -a offsets=()
-  declare -i new_offset
-  declare -i lineBr
-
-  # describe adjacent tiles in loop; save them in a list of 'offsets'
-  declare -i lower_bound=$((VIEWRAD * -1))
-
-  for ((i = 0; i < VIEWSIZE; i++)); do
-    offsets+=("$lower_bound")
-    ((lower_bound++))
-  done
-
-  # for each row
-  for yoff in "${offsets[@]}"; do
-
-    # line break to draw by column / row
-    lineBr=0
-
-    # for each column
-    for xoff in "${offsets[@]}"; do
-      ((lineBr++))
-
-      # calc index location via grid principle; x = x and y = (Y * COLUMN)
-      new_offset=$((xoff + (yoff * DIMS) + hmn_idx))
-
-      # draw at index
-      echo -n "${framebuffer[new_offset]}"
-
-    done
-
-    # next row
-    lineBr=0 && echo
-
-  done
-
-}
-
-# MENUS
-function debugMenu {
-  local select
-  clear
-  echo "DEBUG MENU"
-  echo "  $TILE_HUMAN @ $hmn_idx @ ($((hmn_idx % DIMS)),$((hmn_idx / DIMS)))" # DBUG location / value
-  echo "SYSTEM"
-  echo "  VIEWSIZE (RAD): $VIEWSIZE ($VIEWRAD)"
-  echo
-  echo "WORKING DIR"
-  echo "  $PWD"
-  echo
-  echo "Data Views"
-  echo "  [1] - framebuffer - keys"
-  echo "  [2] - framebuffer - values"
-  echo "  [3] - tile map - values"
-  echo "  [4] - RESUME"
-  echo "  [5] - RESTART"
-  read -rsn1 select
-
-  # show
-
-  [[ $select == 1 ]] && debugDump framebuffer key DIMS
-  [[ $select == 2 ]] && debugDump framebuffer value DIMS
-  [[ $select == 3 ]] && debugDump tile_map value DIMS file
-  [[ $select == 4 ]] && return
-  [[ $select == 5 ]] && startMenu
-
-}
-function debugDump {
-  # Function to show array keys & values in columns
-
-  # arguments
-  declare -n arg1="$1" # array to dump
-  declare arg2="$2"    # print key or value
-  declare arg3="$3"    # DIMS for columns
-  declare arg4="$4"    # file output switch
-  declare -i lineBr=0  # line break
-
-  # vars to dump to disk
-  local datetime
-  local filename
-  datetime=$(date +"%Y-%m-%d %H:%M:%S")
-  filename="${datetime//\:/}"
-
-  clear
-
-  for akey in "${!arg1[@]}"; do
-    ((lineBr++))
-
-    # show keys or values
-    [[ $2 == 'key' ]] && printf "%03d " "$akey"
-    [[ $2 == 'value' ]] && echo -n "${arg1[$akey]} "
-
-    # dump to text file
-    if [[ $4 == 'file' ]]; then
-
-      # write value
-      echo -n "${arg1[$akey]}" >>"$filename.log"
-
-      # write break
-      [[ $lineBr -eq $3 ]] && echo >>"$filename.log"
-
-    fi
-    # line break on DIMS
-    [[ $lineBr -eq $3 ]] && lineBr=0 && echo
-
-  done
-
-  echo
-  echo "Press any key"
-  read -rsn1 select
-  debugMenu
-}
-function startMenu {
-  # Function to draw menu
-  clear
-  tput cup 5 5 && echo "   C A M P 🔪 E S C A P E"
-  tput cup 7 10 && echo "Press 'g' to start"
-  tput cup 9 10 && echo "Press 'q' to quit"
-  echo
-
-  local var1
-  read -rsn1 var1
-  [[ $var1 == g ]] && startGame
-  [[ $var1 == 1 ]] && debugMenu
-  [[ $var1 == q ]] && exit
-  startMenu
-}
-function gOverMenu {
-  local lineBr=0
-  clear
-  echo
-  echo
-  for _ in {1..10}; do
-    ((lineBr++))
-    echo -n "    🪦    "
-    [[ $lineBr -ge 5 ]] && lineBr=0 && echo && echo
-  done
-
-  echo && echo
-  printf "         💀   ${RED}G A M E   O V E R${OFF}   $tile_loss"
-  echo && echo && echo
-
-  lineBr=0
-  for _ in {1..10}; do
-    ((lineBr++))
-    echo -n "    🪦    "
-    [[ $lineBr -ge 5 ]] && lineBr=0 && echo && echo
-  done
-  echo
-
-  sleep 2
-  startMenu
-}
-
-# CINEMATICS
-function winMovie {
-  clear
-}
-function dieMovie {
-  tput civis
-  clear
-
-  local -i ax ay
-
-  ay=7
-  for _ in {1..3}; do
-    ax=0
-    for _ in {1..9}; do
-      clear
-      tput cup $ax $ay
-      echo -n "🩸"
-      sleep .05
-      ((ax++))
-    done
-  done
-  gOverMenu
-}
-
-# EVENT FUNCTIONS
-function isGameOver {
-  # Function to test if game over
-  # [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')   IS GAME OVER" >>"log.txt"
-
-  # if player tile = enemy tile
-  [[ $hmn_last_icon == "$TILE_WOLF" ]] && tile_loss=$TILE_WOLF && dieMovie
-  [[ $hmn_last_icon == "$TILE_KNIFE" ]] && tile_loss=$TILE_KNIFE && dieMovie
-
-  # if player moves onto tile...
-  [[ ${tile_map[hmn_idx]} == "$TILE_EXIT" ]] && echo "YOU ESCAPED" && sleep 1 && startMenu
-  [[ ${tile_map[hmn_idx]} == "$TILE_LAKE" ]] && echo "YOU DROWNED" && sleep 1 && tile_loss=$TILE_LAKE && dieMovie
-
-}
-
-# ACTION FUNCTIONSa
-function moveTeleport {
-  # Function to move NPC randomly
-
-  local -n mover="$1" # get ref
-  local -i new_idx=0  # set new
-  local -i old_idx=0  # save old
-
-  # randomize location
-  new_idx=$((RANDOM % (DIMS * DIMS)))
-
-  [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')     moveTeleport: ${mover[icon]} #${mover[id]} @ ${mover[indx]} -> ${tile_map[new_idx]} ($new_idx) " >>log.txt
-
-  if [[ ${framebuffer[new_idx]} == "$TILE_WOODS" ]]; then
-    mover[indx]=$new_idx
-  else
-    moveTeleport "$1"
+  # Check for overlap
+  if [[ ${!t[home]} == "$seek_char" ]]; then
+    [[ "$dbug" == on ]] && printf "OVERLAP: %s %s %s %s @ %s\n" "$1" "$2" "$myx" "$myy" "$compass"
+    return
   fi
 
-}
-function makeKnife {
-  [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') makeKnife: $TILE_KNIFE" >>"log.txt"
+  # Update tile value to replace value
+  eval "$t"="$seek_char"
 
-  local -i hunter_id=0
-  local -i random # random
-
-  # each hunter is stored in a -a array (knife_list)
-
-  while [[ $hunter_id -lt $1 ]]; do
-
-    # create hunter's array name & set
-    local varname="hunter${hunter_id}"
-    declare -A -g $varname
-
-    # set attributes
-    random=$((RANDOM % (DIMS * DIMS)))
-
-    # keep in bounds
-    while [[ ${tile_map[random]} != "$TILE_WOODS" ]]; do
-      random=$((RANDOM % (DIMS * DIMS)))
-    done
-
-    # should replace with a nameref
-    eval "$varname[indx]=$random"
-    eval "$varname[icon]=$TILE_KNIFE"
-    eval "$varname[tele]=0"
-    eval "$varname[id]=$hunter_id"
-
-    # add entity's array to list
-    knife_list[hunter_id]="hunter${hunter_id}"
-
-    ((hunter_id++))
-  done
-
-}
-function makeWolf {
-  # Function to make array-managed entity
-  # [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') makeWolf: $TILE_WOLF" >>"log.txt"
-
-  local -i wolf_id=0
-  local -i random # random
-
-  # each wolf is an -A array stored in an -a array (wolflist)
-
-  while [[ $wolf_id -lt $1 ]]; do
-
-    # create wolf's array name & set
-    local varname="wolf${wolf_id}"
-    declare -A -g $varname
-
-    # set attributes
-    random=$((RANDOM % (DIMS * DIMS)))
-
-    # keep in bounds
-    while [[ ${tile_map[random]} != "$TILE_WOODS" ]]; do
-      random=$((RANDOM % (DIMS * DIMS)))
-    done
-
-    eval "$varname[indx]=$random"
-    eval "$varname[icon]=$TILE_WOLF"
-    eval "$varname[id]=$wolf_id"
-
-    # add entity's array to wolflist
-    wolflist[wolf_id]="wolf${wolf_id}"
-
-    ((wolf_id++))
-  done
-
-  # DEBUG
-  # for each in "${!wolflist[@]}"; do
-  #   local -n tnameref=${wolflist[each]}
-  #   [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')   madeloop: $TILE_WOLF ${tnameref[id]} @ ${tnameref[indx]}" >>log.txt
-  # done
-
-}
-function moveWolf {
-  # Function to manipulate each array in a list of arrays
-
-  local -n array_name_list=$1
-  local -i last_pos=0
-  local -i random=0
-
-  # for each array in array
-  for eachitem in "${array_name_list[@]}"; do
-
-    # use nameref to access array
-    local -n mover=$eachitem
-
-    # save last position
-    last_pos="${mover[indx]}"
-
-    # determine movement
-    random=$((RANDOM % 5))
-    [[ $random == 0 ]] # no move
-    [[ $random == 1 ]] && ((mover[indx]++))
-    [[ $random == 2 ]] && ((mover[indx]--))
-    [[ $random == 3 ]] && ((mover[indx] += DIMS))
-    [[ $random == 4 ]] && ((mover[indx] -= DIMS))
-
-    # keep in bounds & safe tile
-    [[ ${mover[indx]} -ge $((DIMS * DIMS)) ]] && mover[indx]=$last_pos
-    [[ ${mover[indx]} -lt 0 ]] && mover[indx]=$last_pos
-    ! [[ ${framebuffer[${mover[indx]}]} == "$TILE_WOODS" ]] && mover[indx]=$last_pos
-
-    # reset last tile if movement
-    [[ $last_pos != "${mover[indx]}" ]] && framebuffer[last_pos]=${tile_map[last_pos]}
-
-    # draw item on framebuffer
-    framebuffer[mover[indx]]=${mover[icon]}
-
-    # [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')     $TILE_WOLF ${mover[id]} @ $last_pos -> ${mover[indx]}:${tile_map[mover[indx]]}" >>"log.txt"
-
-  done
-
-}
-function moveKnife {
-  # Function to move item in ARG1 (array) toward ARG2 (index)
-
-  # use nameref to access array
-  local -n array_name_list=$1
-
-  # for each array in array
-  for eachitem in "${array_name_list[@]}"; do
-
-    # use nameref to access array
-    local -n mover=$eachitem
-
-    # save last position
-    local last_pos="${mover[indx]}"
-
-    # determine movement
-    [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')   moveKnife: ${mover[icon]} #${mover[id]}:${mover[indx]} -> T:$2" >>"log.txt"
-
-    # convert indices to x,y for comparison
-    local -i mover_new_idx=0
-    local -i mover_x=$((mover[indx] % DIMS))
-    local -i mover_y=$((mover[indx] / DIMS))
-    local -i tar_x=$(($2 % DIMS))
-    local -i tar_y=$(($2 / DIMS))
-    local -i init_i=${mover[indx]}
-    local -i init_x=$((mover[indx] % DIMS)) # readability
-    local -i init_y=$((mover[indx] / DIMS)) # readability
-
-    # mover horizontal movement; convert to index
-    [[ "$mover_x" -lt "$tar_x" ]] && ((mover_x++))
-    [[ "$mover_x" -gt "$tar_x" ]] && ((mover_x--))
-    mover_new_idx=$((mover_y * DIMS + mover_x))
-
-    # mover horizontal movement - stop entry into some tiles
-    if ! [[ "${tile_map[mover_new_idx]}" == "$TILE_CABIN" ]]; then
-      # approve movement
-      mover[indx]=$mover_new_idx
-    else
-      # revert x movement
-      mover_x=$init_x
-      mover_new_idx=$((mover_y * DIMS + mover_x))
-    fi
-
-    # mover vertical movement; convert to index
-    [[ "$mover_y" -lt "$tar_y" ]] && ((mover_y++))
-    [[ "$mover_y" -gt "$tar_y" ]] && ((mover_y--))
-    mover_new_idx=$((mover_y * DIMS + mover_x))
-
-    # mover vertical movement - stop entry into some tiles
-    if ! [[ "${tile_map[mover_new_idx]}" == "$TILE_CABIN" ]]; then
-      # approve move
-      mover[indx]=$mover_new_idx
-    else
-      # revert y movement
-      mover_y=$init_y
-      mover_new_idx=$((mover_y * DIMS + mover_x))
-    fi
-
-    # teleport when stuck
-    [[ $init_i == "$mover_new_idx" ]] && ((mover[tele]++))
-    [[ ${mover[tele]} -gt 3 ]] && mover[tele]=0 && moveTeleport "$eachitem"
-
-    # reset last tile if movement
-    [[ $last_pos != "${mover[indx]}" ]] && framebuffer[last_pos]=${tile_map[last_pos]}
-
-    # draw item on framebuffer
-    framebuffer[mover[indx]]=${mover[icon]}
-
-    [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')     moveKnife: ${mover[icon]} #${mover[id]} @ (${init_i}:${tile_map[init_i]}) -> ${mover[indx]}:${tile_map[mover[indx]]} ${mover[tele]}" >>"log.txt"
-
-  done
-
+  # Debug notification
+  [[ "$dbug" == on ]] && echo "Updated $t = $seek_char"
 }
 
-# PLAYER MOVEMENT
-function movePlayer {
-  # Function to move player to new tile; test new tile; revert or approve move
+# ACTION FUNCTIONS
+function moveNPC() {
+  # Function to move NPC to 1 tile toward player
 
-  [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')   MOVE PLAYER ($hmn_idx)" >>log.txt
+  declare npc_target_x="$npc_x" # npc x coordinate
+  declare npc_target_y="$npc_y" # npc y coordinate
+  declare playerX="$x"          # player's x coordinate
+  declare playerY="$y"          # player's y coordinate
+
+  # store the NPC's current/ old position
+  npc_old_pos=$(printf "p%02d%02d" "$npc_x" "$npc_y")
+
+  # NPC movement logic: move toward player location; first x, then y
+  [[ "$npc_x" -lt "$playerX" ]] && ((npc_target_x++))
+  [[ "$npc_x" -gt "$playerX" ]] && ((npc_target_x--))
+
+  # disallow entry into certain tiles - horizontally
+  npc_target=$(printf "p%02d%02d[home]" "$npc_target_x" "$npc_y") # new location, updated X only
+  if ! [[ "${!npc_target}" == "$TILE_CABIN" ]]; then              # if not bad tile npc_target_ype
+    npc_x=$npc_target_x                                           # approve movement
+  fi
+
+  # enemy vertical movement
+  [[ "$npc_y" -lt "$playerY" ]] && ((npc_target_y++))
+  [[ "$npc_y" -gt "$playerY" ]] && ((npc_target_y--))
+
+  # disallow entry into certain tiles - vertically
+  npc_target=$(printf "p%02d%02d[home]" "$npc_x" "$npc_target_y") # new location
+  if ! [[ "${!npc_target}" == "$TILE_CABIN" ]]; then              # if not bad tile npc_target_ype
+    npc_y=$npc_target_y                                           # approve movement
+  fi
+
+  # teleport
+  npc_new_pos=$(printf "p%02d%02d" "$npc_x" "$npc_y")         # store new position
+  [[ "$npc_old_pos" == "$npc_new_pos" ]] && ((npc_no_move++)) # compare old position, count no movement
+  [[ "$npc_no_move" == 3 ]] && npc_no_move=0 && teleportNPC   # after so many turns, run function and reset counter
+
+}
+function teleportNPC() {
+  local new_npc_x
+  local new_npc_y
+  local npc_tele_targ
+  new_npc_x=$((1 + RANDOM % RESOLUTION))
+  new_npc_y=$((1 + RANDOM % RESOLUTION))
+  npc_tele_targ=$(printf "p%02d%02d[home]" "$new_npc_x" "$new_npc_y")
+
+  if [[ "${!npc_tele_targ}" == "$TILE_WOOD" ]]; then # IF not bad tile npc_target_ype
+    npc_x=$new_npc_x                                 #  approve x movement
+    npc_y=$new_npc_y                                 #  approve y movement
+  else                                               # OR
+    teleportNPC                                      #  run until good tile npc_target_ype
+  fi                                                 # END
+}
+function movePlayer() {
+  # Function to translate keyboard into directional movement
 
   # wait for any input key
-  read -rsn1 -t${GAMESPEED} keypress
+  read -rsn1 -t${GAMESPEED} keystroke
 
-  # directional movement - grid logic
-  [[ $keypress == s ]] && ((hmn_idx += DIMS))
-  [[ $keypress == w ]] && ((hmn_idx -= DIMS))
-  [[ $keypress == a ]] && ((hmn_idx -= 1))
-  [[ $keypress == d ]] && ((hmn_idx += 1))
-  [[ $keypress == m ]] && drawScreen tile_map && read -rsn1
-  [[ $keypress == 0 ]] && debugMenu
-  [[ $keypress == '-' ]] && ((VIEWSIZE -= 2))
-  [[ $keypress == '=' ]] && ((VIEWSIZE += 2))
+  [[ $keystroke == "w" ]] && ((y = y + 1)) # directional movement north
+  [[ $keystroke == "a" ]] && ((x = x - 1)) # directional movement west
+  [[ $keystroke == "s" ]] && ((y = y - 1)) # directional movement south
+  [[ $keystroke == "d" ]] && ((x = x + 1)) # directional movement east
 
-  [[ -z $keypress ]] && return
+  # keep player "in-bounds" via the array logic
+  [[ $x == $((RESOLUTION + 1)) ]] && x=$RESOLUTION && echo -n "NO WAY"
+  [[ $y == $((RESOLUTION + 1)) ]] && y=$RESOLUTION && echo -n "NO WAY"
+  [[ $x == 0 ]] && x=1 && echo -n "NO WAY"
+  [[ $y == 0 ]] && y=1 && echo -n "NO WAY"
 
   # player can't enter some tiles
-  moveDeny "$TILE_TREES" "$keypress" "$hmn_last_icon" # can't enter tree
-  moveDeny "$TILE_CABIN" "$keypress" "$hmn_last_icon" # can't enter cabin
-  moveDeny "$TILE_WOODS" "$keypress" "$hmn_last_icon" # can't enter woods from cabin
-  moveDeny "$TILE_KNIFE" "$keypress" "$hmn_last_icon" # can't enter enemy
-  moveDeny "$TILE_FIELD" "$keypress" "$hmn_last_icon" # can't enter field from cabin
-  moveDeny "$TILE_WOLF" "$keypress" "$hmn_last_icon"  # can't enter field from cabin
+  denyMove "$TILE_TREE" "$keystroke"
 
 }
-function moveDeny {
+function denyMove() {
   # Function to deny illegal movement; reverts position
 
-  # arg 1 illegal tile to test
-  # arg 2 movement direction for reversion
-  # arg 3 last approved tile index
+  declare arg1=$1 # tile type to deny
+  declare arg2=$2 # movement direction; need for reversion
+
+  # get location
+  play_dest=$(printf "p%02d%02d[home]" "$x" "$y")
 
   # if movement is to denied tile type, undo movement
-  if [[ ${framebuffer[hmn_idx]} == "$1" ]]; then # if destination = bad tile
-
-    # UNESS... - EXCEPTION LIST - allow entry TO some tiles FROM others:
-
-    # DEBUG
-    [[ "$3" == "$TILE_KNIFE" ]] && [[ $1 == "$TILE_WOODS" ]] && return # for debugging
-
-    # ...from cabin to
-    [[ "$3" == "$TILE_CABIN" ]] && [[ $1 == "$TILE_CABIN" ]] && return
-
-    # ...from doors to
-    [[ "$3" == "$TILE_DOOR" ]] && [[ $1 == "$TILE_WOODS" ]] && return
-    [[ "$3" == "$TILE_DOOR" ]] && [[ $1 == "$TILE_CABIN" ]] && return
-    [[ "$3" == "$TILE_DOOR" ]] && [[ $1 == "$TILE_FIELD" ]] && return
-
-    # ...from woods to
-    [[ "$3" == "$TILE_WOODS" ]] && [[ $1 == "$TILE_WOODS" ]] && return
-    [[ "$3" == "$TILE_WOODS" ]] && [[ $1 == "$TILE_FIELD" ]] && return
-    [[ "$3" == "$TILE_WOODS" ]] && [[ $1 == "$TILE_WOLF" ]] && return
-
-    # ...from fields to
-    [[ "$3" == "$TILE_FIELD" ]] && [[ $1 == "$TILE_WOODS" ]] && return
-
-    # debug
-    [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')   DENY MOVE [$2]: $3 -> $1 ?" >>log.txt
-    [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//')     to: $3 -> ${framebuffer[$hmn_idx]}" >>log.txt
-
-    # revert movement
-    [[ "$2" == "w" ]] && ((hmn_idx += DIMS))
-    [[ "$2" == "s" ]] && ((hmn_idx -= DIMS))
-    [[ "$2" == "d" ]] && ((hmn_idx -= 1))
-    [[ "$2" == "a" ]] && ((hmn_idx += 1))
-
-    # send message based on tile
-    [[ $1 == "$TILE_TREES" ]] && message1="There's a huge tree!"
-    [[ $1 == "$TILE_CABIN" ]] && message1="There's no way in!"
-    [[ $1 == "$TILE_WOODS" ]] && message1="There's no way out!"
-
+  if [[ "${!play_dest}" == "$1" ]]; then # if destination = bad tile
+    [[ "$2" == "w" ]] && ((y = y - 1))
+    [[ "$2" == "s" ]] && ((y = y + 1))
+    [[ "$2" == "d" ]] && ((x = x - 1))
+    [[ "$2" == "a" ]] && ((x = x + 1))
   fi
 
 }
-function mainLoop {
+function mainLoop() {
+  local clock
+  local keystroke
 
-  local keypress
+  # Interface variables
+  local player_tile_id
+  local player_target_tile
+  local player_index
+  local npc_tile_id
+  local npc_tile_xy
+  local npc_last_tile
+  local npc_index
 
-  while ! [[ $keypress == "q" ]]; do
+  while ! [[ $keystroke == "q" ]]; do
+    ((clock++))
 
-    [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') MAIN LOOP (#$gametime)" >>log.txt
+    # PUT PLAYER ON MAP
+    player_tile_id=$(printf "p%02d%02d" "$x" "$y") # store coordinate variable name
+    player_target_tile="${player_tile_id}[home]"   # store tile init value
+    eval "${player_tile_id}[area]=$TILE_PLAYER"    # set tile val to player
 
-    ((gametime++))
+    # PUT PLAYER ON QUICKMAP
+    player_tile_xy=${player_tile_id:1}              # get only the coordinates
+    player_index=${pixelDictonary[$player_tile_xy]} # get the index using coordinates
+    framebuffer[player_index]="$TILE_PLAYER"        # update framebuffer
 
-    # save movers tiles' init emoji value
-    declare -g hmn_last_icon=${framebuffer[hmn_idx]}
+    # PUT BADGUY ON MAP
+    npc_tile_id=$(printf "p%02d%02d" "$npc_x" "$npc_y") # store coordinate variable name
+    npc_last_tile="${npc_tile_id}[home]"                # store tile init value
+    eval "${npc_tile_id}[area]=$TILE_ENEMY"             # set tile val to enemy
 
-    # save initial value of index location
-    declare -g hmn_last_idx=$hmn_idx
+    # PUT BADGUY ON QUICKMAP
+    npc_tile_xy=${npc_tile_id:1}              # get only the coordinates
+    npc_index=${pixelDictonary[$npc_tile_xy]} # get the index using coordinates
+    framebuffer[npc_index]="$TILE_ENEMY"      # update framebuffer
 
-    # put moving items into framebuffer
-    framebuffer[hmn_idx]="$TILE_HUMAN"
+    # QUICK DRAW SCREEN + TEXT
+    drawScreen "framebuffer" ${RESOLUTION}                                                   # draw stored screen data
+    [[ "$dbug" == on ]] && printf "p%02d%02d:%s \n" "$x" "$y" "${!player_target_tile[home]}" # dbug location / value
+    [[ "$dbug" == on ]] && echo "here's $TILE_ENEMY $npc_x $npc_y"                           # dbug badguy location
 
-    # draw display
-    # drawScreen framebuffer DIMS # to draw entire map each frame
-    drawWindow # to draw view area
-    drawConsole
+    # [[ "${!player_target_tile[home]}" == "$TILE_WOOD" ]] && printf "\nThe woods are scary at night.\n"
+    # [[ "${!player_target_tile[home]}" == "$TILE_CABIN" ]] && printf "\nInside the cabin feels safer.\n"
 
-    # test events
-    isGameOver
+    # draw console
+    printf "\nUse A S D W to move around, Q to quit.\n\n" # show text
+    [[ "$dbug" == on ]] && printf "CLOCK: %s\n" "$clock"  # show clock
+    echo                                                  # show spacer
 
-    # move objects
+    # CHECK FOR GAME OVER - collision with enemy or exit tile
+    [[ "$npc_x" == "$x" ]] && [[ "$npc_y" == "$y" ]] && printf "%sTHEY GOT YOU%s \n" "$RED" "$OFF" && read -rsn1
+    [[ "${!player_target_tile[home]}" == "$TILE_WINNER" ]] && printf "\nYOU ESCAPED\n" && read -rsn1
+
+    # PLAYER & BADGUY ACTION
     movePlayer
-    moveKnife knife_list "$hmn_idx"
-    moveWolf wolflist
+    moveNPC
 
-    # UPDATE FRAMEBUFFER INCREMENTALLY - replace previous tile
-    framebuffer[hmn_last_idx]=$hmn_last_icon # revert player's last tile at index
+    # SET LAST TILE TO INIT VALUE IN VAR DATABASE
+    unset "${player_tile_id}[area]" # remove occupation flag from player's tile var
+    unset "${npc_tile_id}[area]"    # remove occupation flag from badguy's tile var
+
+    # SET LAST TILE TO INIT VALUE IN QUICK DRAW SCREEN
+    framebuffer[player_index]=${!player_target_tile} # revert player's last tile at index
+    framebuffer[npc_index]=${!npc_last_tile}         # revert badguy's last tile at index
 
   done
-}
-
-# GAME LOOP
-function startGame {
-  # Function to launch main game
-  [[ $DBUG == on ]] && echo "$(gdate +"%H:%M:%S.%N" | sed 's/000//') START GAME" >>log.txt
-
-  # set global game vars
-  initGameVars
-
-  # make map
-  makeCamp DIMS                        # generate map
-  expand3x3 tilelist_cabin $TILE_CABIN # grow tiles to 3x3
-  makeDoors tilelist_cabin $TILE_DOOR  # make doors
-  expand3x3 tilelist_water $TILE_LAKE  # grow tiles to 3x3
-
-  # make framebuffer from tile map
-  framebuffer=("${tile_map[@]}")
-
-  # make player @ bottom-left tile, inside border
-
-  hmn_idx=$((DIMS * DIMS - VIEWRAD * DIMS + VIEWRAD - DIMS))
-
-  # make enemies
-  makeWolf 10
-  makeKnife 20
-
-  # go
-  mainLoop
-
-  # unset database
-  unset gametime keypress framebuffer tile_map clock
-
 }
 
 ################################################################################
 # EXECUTION
 ################################################################################
 
-# show debug
-DBUG=on
+function startGame {
+  makeCamp $RESOLUTION    # generate map
+  findTiles "$TILE_CABIN" # find cabins
+  expandTiles "targ_list" # grow cabins
+  makeDictionary          # build coordinate–pixel dictionary
+  makeScreen              # create first screen from database
+  mainLoop                # start game
 
-# hide cursor
-tput civis
+  # Cleanup
+  tput cnorm                                          # restore cursor
+  for var in "${dump_list[@]}"; do unset "$var"; done # unset database
 
-initConstants
+}
 
-# auto-launch
 startGame
-
-# start main menu
-# startMenu
-
-# show cursor
-tput cnorm
-
-clear
-cat log.txt
